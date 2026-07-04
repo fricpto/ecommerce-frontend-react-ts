@@ -18,6 +18,15 @@ async function handleResponse<T>(res: Response): Promise<T> {
     return (await res.text()) as unknown as T;
 }
 
+export async function logoutUser() {
+    const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: authHeaders(),
+    });
+    // 200 or 204 both mean success
+    return res.ok;
+}
+
 // ── Admin: Items ──────────────────────────────────────────────
 export async function getAdminItems() {
     const res = await fetch('/api/admin/items', { headers: authHeaders() });

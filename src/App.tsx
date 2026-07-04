@@ -13,6 +13,7 @@ import {
   addItemToBackendCart,
   removeItemFromBackendCart,
   updateBackendCartQuantity,
+  logoutUser
 } from './utility/api';
 
 function decodeJwt(token: string): Record<string, any> | null {
@@ -37,7 +38,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   // Saved credit cards (from /api/user/cards)
   const [savedCards, setSavedCards] = useState<CreditCard[]>([]);
-
+  /* const [token, setToken] = useState<string | null>(null); */
   // ── Products (public, no auth) ────────────────────────────
   async function fetchProducts() {
     try {
@@ -45,12 +46,12 @@ export default function App() {
       if (!res.ok) throw new Error(`${res.status}`);
       const raw: any[] = await res.json();
       // ── Diagnostic: open browser DevTools console to see this ──
-      console.table(raw.map(p => ({
-        id: p.id,
-        name: p.name,
-        gender: p.gender ?? '(null)',
-        tags: JSON.stringify(p.tags ?? []),
-      })));
+      /*       console.table(raw.map(p => ({
+              id: p.id,
+              name: p.name,
+              gender: p.gender ?? '(null)',
+              tags: JSON.stringify(p.tags ?? []),
+            }))); */
       setProducts(raw.map(p => ({
         id: Number(p.id),
         name: p.name ?? '',
@@ -65,6 +66,15 @@ export default function App() {
   }
 
   useEffect(() => { fetchProducts(); }, []);
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (savedToken && savedUser) {
+      /* setToken(savedToken); */
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
 
   // ── Saved cards ───────────────────────────────────────────
   // WalletController: GET /api/user/cards
@@ -101,11 +111,10 @@ export default function App() {
       const data = await res.json();
       const token = data.jwt ?? data.token;
       if (!token) throw new Error('No token returned by server');
-      localStorage.setItem('token', token);
 
       const jwt = decodeJwt(token);
-      console.log('Login response body:', data);
-      console.log('JWT payload:', jwt);
+      /*       console.log('Login response body:', data);
+            console.log('JWT payload:', jwt); */
 
       const rawRole =
         data.user?.role
@@ -124,10 +133,13 @@ export default function App() {
         walletId: data.user?.walletId ?? data.walletId ?? undefined,
       };
 
-      console.log('Resolved user:', loggedInUser);
+      /* console.log('Resolved user:', loggedInUser); */
       setUser(loggedInUser);
+      /* setToken(token); */
       setIsAuthModalOpen(false);
 
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(loggedInUser));
       // Load saved cards after login (fails silently for new users without a wallet)
       await fetchSavedCards();
     } catch (err) {
@@ -136,10 +148,16 @@ export default function App() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutUser();   // ← tells backend to blacklist the token
+    } catch {
+      // fail silently — still clear frontend regardless
+    }
     setUser(null);
     setSavedCards([]);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }
 
   // ── Cart helpers (sync to backend when logged in) ─────────
