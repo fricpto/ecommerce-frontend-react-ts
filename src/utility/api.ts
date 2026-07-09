@@ -95,6 +95,22 @@ export async function changeUserRole(id: number, role: 'ADMIN' | 'USER') {
     return handleResponse<unknown>(res);
 }
 
+export async function updateUserCredentials(token: string, userId: number, email?: string, password?: string) {
+    const body: any = {};
+    if (email) body.email = email;
+    if (password) body.password = password;
+    const res = await fetch(`/api/admin/users/${userId}/credentials`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
 // ── Admin: Orders ─────────────────────────────────────────────
 // getAdminOrders was previously calling /api/admin/items (wrong URL).
 // Both functions are kept so existing imports don't break, but both

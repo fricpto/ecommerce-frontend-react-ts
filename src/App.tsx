@@ -38,7 +38,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   // Saved credit cards (from /api/user/cards)
   const [savedCards, setSavedCards] = useState<CreditCard[]>([]);
-  /* const [token, setToken] = useState<string | null>(null); */
+  const [token, setToken] = useState<string | null>(null);
   // ── Products (public, no auth) ────────────────────────────
   async function fetchProducts() {
     try {
@@ -71,7 +71,7 @@ export default function App() {
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
     if (savedToken && savedUser) {
-      /* setToken(savedToken); */
+      setToken(savedToken);
       setUser(JSON.parse(savedUser));
     }
   }, []);
@@ -135,7 +135,7 @@ export default function App() {
 
       /* console.log('Resolved user:', loggedInUser); */
       setUser(loggedInUser);
-      /* setToken(token); */
+      setToken(token);
       setIsAuthModalOpen(false);
 
       localStorage.setItem('token', token);
@@ -311,6 +311,7 @@ export default function App() {
         isOpen={isAdminPanelOpen}
         onClose={() => setIsAdminPanelOpen(false)}
         onItemsChanged={fetchProducts}
+        token={token}
       />
     </>
   );

@@ -11,7 +11,7 @@ import {
     addProduct, updateProduct, deleteProduct,
     deleteUser, addUser, changeUserRole,
     cancelAdminOrder,
-    cleanupBlacklist, forceCleanupBlacklist,
+    cleanupBlacklist, forceCleanupBlacklist, updateUserCredentials
 } from '../utility/api';
 
 type Tab = 'dashboard' | 'products' | 'orders' | 'users' | 'system';
@@ -71,9 +71,11 @@ interface AdminPanelProps {
     isOpen: boolean;
     onClose: () => void;
     onItemsChanged?: () => void;
+    token: string | null;
+
 }
 
-export function AdminPanel({ isOpen, onClose, onItemsChanged }: AdminPanelProps) {
+export function AdminPanel({ isOpen, onClose, onItemsChanged, token }: AdminPanelProps) {
     const [tab, setTab] = useState<Tab>('dashboard');
 
     const [items, setItems] = useState<AdminItem[]>([]);
@@ -94,6 +96,19 @@ export function AdminPanel({ isOpen, onClose, onItemsChanged }: AdminPanelProps)
     const [userForm, setUserForm] = useState({ ...BLANK_USER });
     const [userSaving, setUserSaving] = useState(false);
     const [userFormError, setUserFormError] = useState<string | null>(null);
+
+    // User credentials update form
+    const [editingUserId, setEditingUserId] = useState<number | null>(null);
+    const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '' });
+    const [editCredsSaving, setEditCredsSaving] = useState(false);
+    const [editCredsError, setEditCredsError] = useState<string | null>(null);
+    const editingUser = users.find(u => u.id === editingUserId) ?? null;
+
+    const openEditCredentials = (userId: number) => {
+        setEditingUserId(userId);
+        setEditCredsForm({ email: '', password: '' });
+        setEditCredsError(null);
+    };
 
     // Order filter
     const [orderFilter, setOrderFilter] = useState('ALL');
@@ -210,6 +225,37 @@ export function AdminPanel({ isOpen, onClose, onItemsChanged }: AdminPanelProps)
         try { await changeUserRole(u.id, newRole); fetchAll(); }
         catch (e: any) { alert(e.message ?? 'Role change failed'); }
         finally { setRoleLoading(null); }
+    };
+
+    const handleUpdateCredentials = async (e: React.FormEvent, userId: number) => {
+        e.preventDefault();
+        setEditCredsError(null);
+
+        if (!editCredsForm.email && !editCredsForm.password) {
+            setEditCredsError('Please provide a new email or password to update.');
+            return;
+        }
+
+        setEditCredsSaving(true);
+        try {
+
+            if (!token) throw new Error('Missing auth token. Please log in again.');
+
+            await updateUserCredentials(
+                token,
+                userId,
+                editCredsForm.email || undefined,
+                editCredsForm.password || undefined
+            );
+
+            setEditingUserId(null);
+            setEditCredsForm({ email: '', password: '' });
+            fetchAll();
+        } catch (err: any) {
+            setEditCredsError(err.message || 'Failed to update credentials');
+        } finally {
+            setEditCredsSaving(false);
+        }
     };
 
     // ── Orders ────────────────────────────────────────────────
@@ -502,6 +548,30 @@ export function AdminPanel({ isOpen, onClose, onItemsChanged }: AdminPanelProps)
                                     </form>
                                 </div>
                             )}
+                            {editingUser && (
+                                <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10, padding: 24, animation: 'slideUp 0.25s ease' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 500 }}>Edit credentials</h3>
+                                            <p style={{ margin: '6px 0 0', color: 'var(--color-text-muted)', fontSize: 13 }}>User: {editingUser.email}</p>
+                                        </div>
+                                        <button onClick={() => setEditingUserId(null)} style={{ ...S.iconBtn, color: 'var(--color-text-muted)' }}><X size={16} /></button>
+                                    </div>
+                                    <form onSubmit={e => handleUpdateCredentials(e, editingUser.id)}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                                            <div><label style={S.label}>New Email</label><input className="form-input" type="email" placeholder="Leave blank to keep current" value={editCredsForm.email} onChange={e => setEditCredsForm(f => ({ ...f, email: e.target.value }))} /></div>
+                                            <div><label style={S.label}>New Password</label><input className="form-input" type="password" minLength={6} placeholder="Leave blank to keep current" value={editCredsForm.password} onChange={e => setEditCredsForm(f => ({ ...f, password: e.target.value }))} /></div>
+                                        </div>
+                                        {editCredsError && <p style={{ color: 'var(--color-error)', fontSize: 13, margin: '0 0 12px' }}>{editCredsError}</p>}
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            <button type="submit" disabled={editCredsSaving} style={{ ...S.primaryBtn, opacity: editCredsSaving ? 0.7 : 1 }}>
+                                                {editCredsSaving && spinner}Update Credentials
+                                            </button>
+                                            <button type="button" onClick={() => setEditingUserId(null)} style={{ padding: '10px 20px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 7, fontSize: 13.5, cursor: 'pointer', fontFamily: 'var(--font-body)', color: 'var(--color-text)' }}>Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
                             <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10, overflow: 'hidden' }}>
                                 <table className="admin-table">
                                     <thead><tr><th>Name</th><th>Email</th><th>Role</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
@@ -517,6 +587,7 @@ export function AdminPanel({ isOpen, onClose, onItemsChanged }: AdminPanelProps)
                                                 </td>
                                                 <td>
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
+                                                        <button onClick={() => openEditCredentials(u.id)} style={{ ...S.iconBtn, color: 'var(--color-text)' }} title="Edit credentials"><Pencil size={14} /></button>
                                                         {u.role !== 'ADMIN' && u.role !== 'ROLE_ADMIN' && (
                                                             <button onClick={() => handleChangeRole(u, 'ADMIN')} disabled={roleLoading === u.id} style={{ ...S.iconBtn, color: 'var(--color-accent-dark)', opacity: roleLoading === u.id ? 0.5 : 1 }} title="Promote to Admin"><UserCheck size={14} /></button>
                                                         )}
