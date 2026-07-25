@@ -67,15 +67,29 @@ export default function App() {
 
   useEffect(() => { fetchProducts(); }, []);
 
+  // A JWT's payload (the middle base64 segment) contains an "exp" claim (Unix seconds).
+  function isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp * 1000 < Date.now();
+    } catch {
+      return true; // if we can't even parse it, treat it as invalid
+    }
+  }
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
+    if (savedToken && savedUser && !isTokenExpired(savedToken)) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
+      fetchSavedCards();
+    } else if (savedToken) {
+      // stale/expired — clean it up instead of silently restoring a dead session
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   }, []);
-
   // ── Saved cards ───────────────────────────────────────────
   // WalletController: GET /api/user/cards
   // The card number field the backend returns is "number" (from CreditCard.getNumber()),
@@ -106,7 +120,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error(`Login ${res.status}`);
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `Login failed (${res.status})`);
+      }
 
       const data = await res.json();
       const token = data.jwt ?? data.token;
@@ -142,9 +160,9 @@ export default function App() {
       localStorage.setItem('user', JSON.stringify(loggedInUser));
       // Load saved cards after login (fails silently for new users without a wallet)
       await fetchSavedCards();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      alert('Login failed. Please check your credentials.');
+      alert(err.message || 'Login failed. Please check your credentials.');
     }
   }
 
