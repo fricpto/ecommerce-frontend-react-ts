@@ -179,6 +179,16 @@ export function AdminPanel({ isOpen, onClose, onItemsChanged, token }: AdminPane
 
     useEffect(() => { if (isOpen) fetchAll(); }, [isOpen, fetchAll]);
 
+    // ── Lock page scroll while the admin overlay is open ────────
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     // ── Product CRUD ──────────────────────────────────────────
     const openAddItem = () => {
         setEditingItem(null); setItemForm({ ...BLANK_ITEM });
