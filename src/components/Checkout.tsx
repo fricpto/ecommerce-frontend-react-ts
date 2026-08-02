@@ -187,8 +187,12 @@ export function Checkout({
                 // 4. Save card to wallet if checkbox was checked (new card only)
                 if (!selectedSavedCard && saveCardChecked) {
                     try {
-                        // WalletController only stores card number — no expiry/CVV
-                        await addCardToWallet(formData.cardNumber.replace(/\D/g, ''));
+                        const expiry = parseExpiry(formData.expiryDate);
+                        await addCardToWallet(
+                            formData.cardNumber.replace(/\D/g, ''),
+                            expiry?.month,
+                            expiry?.year
+                        );
                         onCardsUpdated?.();
                     } catch (saveErr) {
                         console.warn('Card save failed (non-critical):', saveErr);

@@ -266,14 +266,14 @@ export async function simulatePayment(values: {
 }
 
 // ── Card management ───────────────────────────────────────────
-// POST /api/user/cards — save a new card to the wallet
-// WalletController.AddCardRequest only has { number } — backend does NOT store
-// expiry or CVV (correct PCI-DSS practice). Only the card number is persisted.
-export async function addCardToWallet(cardNumber: string) {
+// POST /api/user/cards — save a new card to the wallet.
+// expiryMonth/expiryYear are optional; the backend validates
+// they aren't in the past if both are provided.
+export async function addCardToWallet(cardNumber: string, expiryMonth?: number, expiryYear?: number) {
     const res = await fetch('/api/user/cards', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ number: cardNumber }),   // ← backend field is "number"
+        body: JSON.stringify({ number: cardNumber, expiryMonth, expiryYear }),
     });
     return handleResponse<unknown>(res);
 }
